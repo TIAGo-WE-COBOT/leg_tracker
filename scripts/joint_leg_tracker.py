@@ -174,10 +174,10 @@ class KalmanMultiTracker:
         # Get ROS params
         self.fixed_frame = rospy.get_param("fixed_frame", "odom")
         self.max_leg_pairing_dist = rospy.get_param("max_leg_pairing_dist", 0.8)
-        self.confidence_threshold_to_maintain_track = rospy.get_param("confidence_threshold_to_maintain_track", 0.1)
+        self.confidence_threshold_to_maintain_track = rospy.get_param("confidence_threshold_to_maintain_track", 0.05)# 0.1) for use on Gazebo robot
         self.publish_occluded = rospy.get_param("publish_occluded", True)
         self.publish_people_frame = rospy.get_param("publish_people_frame", self.fixed_frame)
-        self.use_scan_header_stamp_for_tfs = rospy.get_param("use_scan_header_stamp_for_tfs", False)
+        self.use_scan_header_stamp_for_tfs = rospy.get_param("use_scan_header_stamp_for_tfs", True)#False)
         self.publish_detected_people = rospy.get_param("display_detected_people", False)        
         self.dist_travelled_together_to_initiate_leg_pair = rospy.get_param("dist_travelled_together_to_initiate_leg_pair", 0.5)
         scan_topic = rospy.get_param("scan_topic", "scan");
@@ -191,10 +191,11 @@ class KalmanMultiTracker:
         self.latest_scan_header_stamp_with_tf_available = rospy.get_rostime()
 
     	# ROS publishers
-        self.people_tracked_pub = rospy.Publisher('people_tracked', PersonArray, queue_size=300)
-        self.people_detected_pub = rospy.Publisher('people_detected', PersonArray, queue_size=300)
-        self.marker_pub = rospy.Publisher('visualization_marker', Marker, queue_size=300)
-        self.non_leg_clusters_pub = rospy.Publisher('non_leg_clusters', LegArray, queue_size=300)
+        queue_size = 1 # default: 300
+        self.people_tracked_pub = rospy.Publisher('people_tracked', PersonArray, queue_size=queue_size)
+        self.people_detected_pub = rospy.Publisher('people_detected', PersonArray, queue_size=queue_size)
+        self.marker_pub = rospy.Publisher('visualization_marker', Marker, queue_size=queue_size)
+        self.non_leg_clusters_pub = rospy.Publisher('non_leg_clusters', LegArray, queue_size=queue_size)
 
         # ROS subscribers         
         self.detected_clusters_sub = rospy.Subscriber('detected_leg_clusters', LegArray, self.detected_clusters_callback)      
@@ -292,7 +293,8 @@ class KalmanMultiTracker:
         """
         # Waiting for the local map to be published before proceeding. This is ONLY needed so the benchmarks are consistent every iteration
         # Should be removed under regular operation
-        if self.use_scan_header_stamp_for_tfs: # Assume <self.use_scan_header_stamp_for_tfs> means we're running the timing benchmark
+        rospy.loginfo('This message is {}s old.'.format((rospy.Time.now() - detected_clusters_msg.header.stamp).to_sec()))
+        if False: #self.use_scan_header_stamp_for_tfs: # Assume <self.use_scan_header_stamp_for_tfs> means we're running the timing benchmark
             wait_iters = 0
             while self.new_local_map_received == False and wait_iters < 10:
                 rospy.sleep(0.1)
@@ -656,6 +658,7 @@ class KalmanMultiTracker:
                         new_person.id = person.id_num 
                         people_tracked_msg.people.append(new_person)
 
+                        """
                         # publish rviz markers       
                         # Cylinder for body 
                         marker = Marker()
@@ -741,8 +744,10 @@ class KalmanMultiTracker:
                         marker.pose.position.z = 0.0
                         marker.id = marker_id 
                         marker_id += 1                    
-                        self.marker_pub.publish(marker)                
+                        self.marker_pub.publish(marker) 
+                        """          
 
+        """
         # Clear previously published people markers
         for m_id in range(marker_id, self.prev_person_marker_id):
             marker = Marker()
@@ -752,8 +757,10 @@ class KalmanMultiTracker:
             marker.id = m_id
             marker.action = marker.DELETE   
             self.marker_pub.publish(marker)
-        self.prev_person_marker_id = marker_id          
-
+            self.prev_person_marker_id = marker_id          
+        """
+        
+    
         # Publish people tracked message
         self.people_tracked_pub.publish(people_tracked_msg)            
 

@@ -101,9 +101,9 @@ public:
     latest_scan_header_stamp_with_tf_available_ = ros::Time::now();
 
     // ROS subscribers + publishers
-    scan_sub_ =  nh_.subscribe(scan_topic, 10, &DetectLegClusters::laserCallback, this);
-    markers_pub_ = nh_.advertise<visualization_msgs::Marker>("visualization_marker", 20);
-    detected_leg_clusters_pub_ = nh_.advertise<leg_tracker::LegArray>("detected_leg_clusters", 20);
+    scan_sub_ =  nh_.subscribe(scan_topic, 1, &DetectLegClusters::laserCallback, this);
+    markers_pub_ = nh_.advertise<visualization_msgs::Marker>("visualization_marker", 1);
+    detected_leg_clusters_pub_ = nh_.advertise<leg_tracker::LegArray>("detected_leg_clusters", 1);
   }
 
 private:
@@ -242,7 +242,6 @@ private:
         }
       }     
     }    
- 
 
     // Publish detected legs to /detected_leg_clusters and to rviz
     // They are ordered from closest to the laser scanner to furthest  
@@ -292,8 +291,7 @@ private:
       markers_pub_.publish(m);
     }
     num_prev_markers_published_ = id_num; // For the next callback
-
-    detected_leg_clusters_pub_.publish(detected_leg_clusters);
+  detected_leg_clusters_pub_.publish(detected_leg_clusters);
   }
 
 

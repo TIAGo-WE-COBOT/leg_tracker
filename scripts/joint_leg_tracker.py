@@ -293,7 +293,7 @@ class KalmanMultiTracker:
         """
         # Waiting for the local map to be published before proceeding. This is ONLY needed so the benchmarks are consistent every iteration
         # Should be removed under regular operation
-        rospy.loginfo('This message is {}s old.'.format((rospy.Time.now() - detected_clusters_msg.header.stamp).to_sec()))
+        #rospy.loginfo('This message is {}s old.'.format((rospy.Time.now() - detected_clusters_msg.header.stamp).to_sec()))
         if False: #self.use_scan_header_stamp_for_tfs: # Assume <self.use_scan_header_stamp_for_tfs> means we're running the timing benchmark
             wait_iters = 0
             while self.new_local_map_received == False and wait_iters < 10:

@@ -62,6 +62,7 @@ class ObjectTracked:
         self.confidence = confidence
         self.dist_travelled = 0.
         self.is_person = is_person
+        self.is_one_leg_seen = None
         self.deleted = False
         self.in_free_space = in_free_space
 
@@ -80,8 +81,8 @@ class ObjectTracked:
             std_process_noise = 0.03333
         else:
             print("Scan frequency needs to be either 7.5, 10 or 15 or the standard deviation of the process noise needs to be tuned to your scanner frequency")
-        std_pos = std_process_noise
-        std_vel = std_process_noise
+        std_pos = std_process_noise #0.13253 std evaluated from the data
+        std_vel = std_process_noise #0.13253
         std_obs = 0.1
         var_pos = std_pos**2
         var_vel = std_vel**2
@@ -174,13 +175,13 @@ class KalmanMultiTracker:
         # Get ROS params
         self.fixed_frame = rospy.get_param("fixed_frame", "odom")
         self.max_leg_pairing_dist = rospy.get_param("max_leg_pairing_dist", 0.8)
-        self.confidence_threshold_to_maintain_track = rospy.get_param("confidence_threshold_to_maintain_track", 0.05)# 0.1) for use on Gazebo robot
+        self.confidence_threshold_to_maintain_track = rospy.get_param("confidence_threshold_to_maintain_track", 0.02)# 0.1) for use on Gazebo robot
         self.publish_occluded = rospy.get_param("publish_occluded", True)
         self.publish_people_frame = rospy.get_param("publish_people_frame", self.fixed_frame)
-        self.use_scan_header_stamp_for_tfs = rospy.get_param("use_scan_header_stamp_for_tfs", True)#False)
+        self.use_scan_header_stamp_for_tfs = rospy.get_param("use_scan_header_stamp_for_tfs", True) #False)
         self.publish_detected_people = rospy.get_param("display_detected_people", False)        
         self.dist_travelled_together_to_initiate_leg_pair = rospy.get_param("dist_travelled_together_to_initiate_leg_pair", 0.5)
-        scan_topic = rospy.get_param("scan_topic", "scan");
+        scan_topic = rospy.get_param("scan_topic", "scan")
         self.scan_frequency = rospy.get_param("scan_frequency", 7.5)
         self.in_free_space_threshold = rospy.get_param("in_free_space_threshold", 0.06)
         self.confidence_percentile = rospy.get_param("confidence_percentile", 0.90)
@@ -356,22 +357,28 @@ class KalmanMultiTracker:
         tracks_to_delete = set()   
         for idx, track in enumerate(self.objects_tracked):
             propogated_track = propogated[idx] # Get the corresponding propogated track
+            is_one_leg_seen = None
             if propogated_track.is_person:
                 if propogated_track in matched_tracks and duplicates[propogated_track] in matched_tracks:
                     # Two matched legs for this person. Create a new detected cluster which is the average of the two
                     md_1 = matched_tracks[propogated_track]
                     md_2 = matched_tracks[duplicates[propogated_track]]
                     matched_detection = DetectedCluster((md_1.pos_x+md_2.pos_x)/2., (md_1.pos_y+md_2.pos_y)/2., (md_1.confidence+md_2.confidence)/2., (md_1.in_free_space+md_2.in_free_space)/2.)
+                    is_one_leg_seen = False
                 elif propogated_track in matched_tracks:
+                    #rospy.logwarn('Only one leg')
                     # Only one matched leg for this person
                     md_1 = matched_tracks[propogated_track]
                     md_2 = duplicates[propogated_track]
-                    matched_detection = DetectedCluster((md_1.pos_x+md_2.pos_x)/2., (md_1.pos_y+md_2.pos_y)/2., md_1.confidence, md_1.in_free_space)                    
+                    matched_detection = DetectedCluster((md_1.pos_x+md_2.pos_x)/2., (md_1.pos_y+md_2.pos_y)/2., md_1.confidence, md_1.in_free_space)
+                    is_one_leg_seen = True                 
                 elif duplicates[propogated_track] in matched_tracks:
+                    #rospy.logwarn('Only one leg')
                     # Only one matched leg for this person 
                     md_1 = matched_tracks[duplicates[propogated_track]]
                     md_2 = propogated_track
-                    matched_detection = DetectedCluster((md_1.pos_x+md_2.pos_x)/2., (md_1.pos_y+md_2.pos_y)/2., md_1.confidence, md_1.in_free_space)                                        
+                    matched_detection = DetectedCluster((md_1.pos_x+md_2.pos_x)/2., (md_1.pos_y+md_2.pos_y)/2., md_1.confidence, md_1.in_free_space)
+                    is_one_leg_seen = True                                        
                 else:      
                     # No legs matched for this person 
                     matched_detection = None  
@@ -390,6 +397,7 @@ class KalmanMultiTracker:
                 track.times_seen += 1
                 track.last_seen = now
                 track.seen_in_current_scan = True
+                track.is_one_leg_seen = is_one_leg_seen
             else: # propogated_track not matched to a detection
                 # don't provide a measurement update for Kalman filter 
                 # so send it a masked_array for its observations
@@ -655,7 +663,8 @@ class KalmanMultiTracker:
                         new_person.pose.orientation.y = quaternion[1]
                         new_person.pose.orientation.z = quaternion[2]
                         new_person.pose.orientation.w = quaternion[3] 
-                        new_person.id = person.id_num 
+                        new_person.id = person.id_num
+                        new_person.is_one_leg_seen = 1 if person.is_one_leg_seen else 0
                         people_tracked_msg.people.append(new_person)
 
                         """

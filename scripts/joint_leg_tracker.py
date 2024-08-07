@@ -175,7 +175,7 @@ class KalmanMultiTracker:
         # Get ROS params
         self.fixed_frame = rospy.get_param("fixed_frame", "odom")
         self.max_leg_pairing_dist = rospy.get_param("max_leg_pairing_dist", 0.8)
-        self.confidence_threshold_to_maintain_track = rospy.get_param("confidence_threshold_to_maintain_track", 0.3)# 0.2) for use on real robot 0.5 for side simulation
+        self.confidence_threshold_to_maintain_track = rospy.get_param("confidence_threshold_to_maintain_track", 0.4)# 0.2 or 0.3) for use on real robot and follow me simulation 0.5 for side simulation
         self.publish_occluded = rospy.get_param("publish_occluded", True)
         self.publish_people_frame = rospy.get_param("publish_people_frame", self.fixed_frame)
         self.use_scan_header_stamp_for_tfs = rospy.get_param("use_scan_header_stamp_for_tfs", True) #False)
@@ -294,7 +294,6 @@ class KalmanMultiTracker:
         """
         # Waiting for the local map to be published before proceeding. This is ONLY needed so the benchmarks are consistent every iteration
         # Should be removed under regular operation
-        #rospy.loginfo('This message is {}s old.'.format((rospy.Time.now() - detected_clusters_msg.header.stamp).to_sec()))
         if False: #self.use_scan_header_stamp_for_tfs: # Assume <self.use_scan_header_stamp_for_tfs> means we're running the timing benchmark
             wait_iters = 0
             while self.new_local_map_received == False and wait_iters < 10:
@@ -666,8 +665,7 @@ class KalmanMultiTracker:
                         new_person.id = person.id_num
                         new_person.is_one_leg_seen = 1 if person.is_one_leg_seen else 0
                         people_tracked_msg.people.append(new_person)
-
-                        """
+                        '''
                         # publish rviz markers       
                         # Cylinder for body 
                         marker = Marker()
@@ -753,10 +751,8 @@ class KalmanMultiTracker:
                         marker.pose.position.z = 0.0
                         marker.id = marker_id 
                         marker_id += 1                    
-                        self.marker_pub.publish(marker) 
-                        """          
-
-        """
+                        self.marker_pub.publish(marker)      
+        
         # Clear previously published people markers
         for m_id in range(marker_id, self.prev_person_marker_id):
             marker = Marker()
@@ -767,8 +763,7 @@ class KalmanMultiTracker:
             marker.action = marker.DELETE   
             self.marker_pub.publish(marker)
             self.prev_person_marker_id = marker_id          
-        """
-        
+        '''
     
         # Publish people tracked message
         self.people_tracked_pub.publish(people_tracked_msg)            
